@@ -1,0 +1,43 @@
+import pandas as pd
+import psycopg2
+from sqlalchemy import create_engine
+
+# Database connection details
+db_name = "your_db_name"
+db_user = "your_db_user"
+db_password = "your_db_password"
+db_host = "localhost"  # or your database host
+db_port = "5432"  # default PostgreSQL port
+
+# Create a database connection using SQLAlchemy
+engine = create_engine(f'postgresql+psycopg2://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}')
+
+# Load the dataset
+df = pd.read_csv('path/to/your/superstore_sales.csv')
+
+# Basic data cleaning
+df['Order Date'] = pd.to_datetime(df['Order Date'], errors='coerce')
+df['Ship Date'] = pd.to_datetime(df['Ship Date'], errors='coerce')
+df = df.dropna(subset=['Order Date', 'Ship Date'])  # Drop rows where date is missing
+df = df[df['Sales'] > 0]  # Remove rows with non-positive sales
+
+# Additional Data Transformation
+# Example: Adding a 'Year' column from the 'Order Date'
+df['Year'] = df['Order Date'].dt.year
+
+# Save the data to PostgreSQL
+df.to_sql('sales_data', con=engine, if_exists='replace', index=False)
+
+# Additional SQL Operations
+with engine.connect() as conn:
+    # Example SQL: Calculate total sales per year
+    query = """
+    SELECT Year, SUM(Sales) as Total_Sales
+    FROM sales_data
+    GROUP BY Year
+    ORDER BY Year;
+    """
+    total_sales_per_year = pd.read_sql(query, conn)
+    print(total_sales_per_year)
+
+print("Data loaded and SQL operations performed successfully!")
